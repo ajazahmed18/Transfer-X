@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 
 export const OtpInput = ({
-  value,
+  value = '',
   onChange,
   onComplete,
   disabled = false,
@@ -9,8 +9,8 @@ export const OtpInput = ({
 }) => {
   const inputRefs = useRef([]);
 
-  // Array of 6 digits derived from value
-  const digits = Array.from({ length: 6 }, (_, i) => value[i] || '');
+  // Ensure digits array has 6 entries
+  const digits = Array.from({ length: 6 }, (_, i) => (value && value[i]) || '');
 
   useEffect(() => {
     if (autoFocus && inputRefs.current[0] && !disabled) {
@@ -18,23 +18,34 @@ export const OtpInput = ({
     }
   }, [autoFocus, disabled]);
 
+  const updateCode = (newDigits) => {
+    // Preserve digits up to the last filled position or empty
+    let lastFilledIndex = -1;
+    for (let i = 5; i >= 0; i--) {
+      if (newDigits[i]) {
+        lastFilledIndex = i;
+        break;
+      }
+    }
+    const result = lastFilledIndex === -1 ? '' : newDigits.slice(0, lastFilledIndex + 1).map((d) => d || ' ').join('');
+    // Remove trailing spaces, keeping internal gaps if any
+    const cleanResult = result.trimEnd();
+    onChange(cleanResult);
+    return cleanResult;
+  };
+
   const handleKeyDown = (index, e) => {
     if (disabled) return;
 
     if (e.key === 'Backspace') {
       e.preventDefault();
-      if (digits[index]) {
-        // Clear current box
-        const newDigits = [...digits];
+      const newDigits = [...digits];
+      if (newDigits[index]) {
         newDigits[index] = '';
-        const newValue = newDigits.join('').trimEnd();
-        onChange(newValue);
+        updateCode(newDigits);
       } else if (index > 0) {
-        // Clear previous box and shift focus
-        const newDigits = [...digits];
         newDigits[index - 1] = '';
-        const newValue = newDigits.join('').trimEnd();
-        onChange(newValue);
+        updateCode(newDigits);
         inputRefs.current[index - 1]?.focus();
       }
     } else if (e.key === 'ArrowLeft') {
@@ -46,6 +57,18 @@ export const OtpInput = ({
       e.preventDefault();
       if (index < 5) {
         inputRefs.current[index + 1]?.focus();
+      }
+    } else if (/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      const newDigits = [...digits];
+      newDigits[index] = e.key;
+      const updatedCode = updateCode(newDigits);
+
+      if (index < 5) {
+        inputRefs.current[index + 1]?.focus();
+      }
+      if (updatedCode.replace(/\s/g, '').length === 6 && onComplete) {
+        onComplete(updatedCode.replace(/\s/g, ''));
       }
     }
   };
@@ -63,32 +86,27 @@ export const OtpInput = ({
   const handleChange = (index, e) => {
     if (disabled) return;
     const rawVal = e.target.value;
-
-    // Filter only numeric characters
     const cleanDigits = rawVal.replace(/\D/g, '');
+
     if (!cleanDigits) {
       const newDigits = [...digits];
       newDigits[index] = '';
-      onChange(newDigits.join('').trimEnd());
+      updateCode(newDigits);
       return;
     }
 
-    // If single digit entered
     if (cleanDigits.length === 1) {
       const newDigits = [...digits];
       newDigits[index] = cleanDigits;
-      const updatedCode = newDigits.join('');
-      onChange(updatedCode);
+      const updatedCode = updateCode(newDigits);
 
-      // Auto advance to next box
       if (index < 5) {
         inputRefs.current[index + 1]?.focus();
       }
-      if (updatedCode.length === 6 && onComplete) {
-        onComplete(updatedCode);
+      if (updatedCode.replace(/\s/g, '').length === 6 && onComplete) {
+        onComplete(updatedCode.replace(/\s/g, ''));
       }
     } else {
-      // If multiple digits
       handleMultiDigitFill(cleanDigits.slice(0, 6));
     }
   };
@@ -98,8 +116,7 @@ export const OtpInput = ({
     if (disabled) return;
 
     const pastedText = e.clipboardData.getData('text');
-    const codeMatch = pastedText.match(/\b\d{6}\b/) || pastedText.replace(/\D/g, '').slice(0, 6);
-    const cleanCode = typeof codeMatch === 'string' ? codeMatch : codeMatch?.[0] || '';
+    const cleanCode = pastedText.replace(/\D/g, '').slice(0, 6);
 
     if (cleanCode.length > 0) {
       handleMultiDigitFill(cleanCode);
@@ -111,7 +128,7 @@ export const OtpInput = ({
       {/* First 3 Digits */}
       <div className="flex items-center gap-2 sm:gap-2.5">
         {[0, 1, 2].map((index) => {
-          const isFilled = Boolean(digits[index]);
+          const isFilled = Boolean(digits[index] && digits[index].trim());
           return (
             <input
               key={index}
@@ -123,16 +140,16 @@ export const OtpInput = ({
               inputMode="numeric"
               pattern="[0-9]*"
               maxLength={1}
-              value={digits[index]}
+              value={digits[index] && digits[index] !== ' ' ? digits[index] : ''}
               disabled={disabled}
               onChange={(e) => handleChange(index, e)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
-              className={`w-11 h-13 sm:w-12 sm:h-15 text-center text-2xl sm:text-3xl font-mono font-bold rounded-2xl outline-hidden transition-all select-none ${
+              className={`w-11 h-13 sm:w-12 sm:h-15 text-center text-2xl sm:text-3xl font-mono font-bold rounded-2xl outline-hidden transition-all ${
                 isFilled
-                  ? 'bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-2 border-indigo-400 dark:border-indigo-600 shadow-2xs'
-                  : 'bg-slate-50 dark:bg-slate-950/60 text-slate-800 dark:text-slate-100 border-2 border-slate-200 dark:border-slate-800'
-              } focus:border-indigo-600 dark:focus:border-indigo-400 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-indigo-500/15 focus:scale-105 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  ? 'bg-indigo-50/60 text-indigo-700 border-2 border-indigo-500 shadow-2xs'
+                  : 'bg-white text-slate-800 border-2 border-slate-200'
+              } focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-500/15 focus:scale-105 disabled:opacity-50 disabled:cursor-not-allowed`}
               aria-label={`Digit ${index + 1}`}
             />
           );
@@ -141,13 +158,13 @@ export const OtpInput = ({
 
       {/* Dot Separator */}
       <div className="flex items-center justify-center px-0.5 sm:px-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/50 dark:bg-indigo-400/50" />
+        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/50" />
       </div>
 
       {/* Second 3 Digits */}
       <div className="flex items-center gap-2 sm:gap-2.5">
         {[3, 4, 5].map((index) => {
-          const isFilled = Boolean(digits[index]);
+          const isFilled = Boolean(digits[index] && digits[index].trim());
           return (
             <input
               key={index}
@@ -159,16 +176,16 @@ export const OtpInput = ({
               inputMode="numeric"
               pattern="[0-9]*"
               maxLength={1}
-              value={digits[index]}
+              value={digits[index] && digits[index] !== ' ' ? digits[index] : ''}
               disabled={disabled}
               onChange={(e) => handleChange(index, e)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
-              className={`w-11 h-13 sm:w-12 sm:h-15 text-center text-2xl sm:text-3xl font-mono font-bold rounded-2xl outline-hidden transition-all select-none ${
+              className={`w-11 h-13 sm:w-12 sm:h-15 text-center text-2xl sm:text-3xl font-mono font-bold rounded-2xl outline-hidden transition-all ${
                 isFilled
-                  ? 'bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-2 border-indigo-400 dark:border-indigo-600 shadow-2xs'
-                  : 'bg-slate-50 dark:bg-slate-950/60 text-slate-800 dark:text-slate-100 border-2 border-slate-200 dark:border-slate-800'
-              } focus:border-indigo-600 dark:focus:border-indigo-400 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-indigo-500/15 focus:scale-105 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  ? 'bg-indigo-50/60 text-indigo-700 border-2 border-indigo-500 shadow-2xs'
+                  : 'bg-white text-slate-800 border-2 border-slate-200'
+              } focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-500/15 focus:scale-105 disabled:opacity-50 disabled:cursor-not-allowed`}
               aria-label={`Digit ${index + 1}`}
             />
           );

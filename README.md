@@ -60,26 +60,26 @@ peerdrop/
 - Node.js (v18.0.0 or higher)
 - npm / yarn / pnpm
 
-### 1. Install Dependencies
-```bash
-npm install
-```
+### 1. Start MongoDB
+Ensure MongoDB is running locally (`mongod` or MongoDB Compass/service), or provide your MongoDB Atlas connection string in `backend/.env`.
 
-### 2. Development Mode
-Runs the TypeScript Express server with Socket.IO and Vite dev middleware on port 3000:
+### 2. Backend Setup & Run
 ```bash
+cd backend
+npm install
 npm run dev
 ```
-Open your browser at `http://localhost:3000`.
+Backend will start on port `5050` with Socket.IO signaling and MongoDB connected.
 
-### 3. Production Build
-Builds the client bundle into `dist/` and bundles `server.ts` with `esbuild`:
+### 3. Frontend Setup & Run
+In a separate terminal:
 ```bash
-npm run build
-npm start
+cd frontend
+npm install
+npm run dev
 ```
+Open your browser at `http://localhost:5173`.
 
----
 
 ## 🔄 How WebRTC Signaling Works
 

@@ -17,7 +17,7 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT) || 5050;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const ROOM_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
 

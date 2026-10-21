@@ -169,6 +169,8 @@ export const SenderView = () => {
     if (e.target.files && e.target.files.length > 0) {
       addFilesToStaging(e.target.files);
     }
+    // Reset input value so selecting the same file again works
+    e.target.value = '';
   };
 
   const copyCodeToClipboard = () => {
