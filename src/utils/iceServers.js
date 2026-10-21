@@ -1,6 +1,4 @@
-import { IceServerConfig } from '../types';
-
-export const DEFAULT_ICE_SERVERS: IceServerConfig[] = [
+export const DEFAULT_ICE_SERVERS = [
   {
     urls: [
       'stun:stun.l.google.com:19302',
@@ -17,7 +15,7 @@ export const DEFAULT_ICE_SERVERS: IceServerConfig[] = [
 
 const STORAGE_KEY = 'peerdrop_custom_ice_servers';
 
-export function getStoredIceServers(): IceServerConfig[] {
+export function getStoredIceServers() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_ICE_SERVERS;
@@ -31,7 +29,7 @@ export function getStoredIceServers(): IceServerConfig[] {
   return DEFAULT_ICE_SERVERS;
 }
 
-export function saveStoredIceServers(servers: IceServerConfig[]): void {
+export function saveStoredIceServers(servers) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
   } catch (e) {
@@ -39,7 +37,7 @@ export function saveStoredIceServers(servers: IceServerConfig[]): void {
   }
 }
 
-export function resetIceServersToDefault(): IceServerConfig[] {
+export function resetIceServersToDefault() {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch (e) {
@@ -48,19 +46,13 @@ export function resetIceServersToDefault(): IceServerConfig[] {
   return DEFAULT_ICE_SERVERS;
 }
 
-export async function testIceServers(iceServers: IceServerConfig[]): Promise<{
-  success: boolean;
-  candidates: string[];
-  latencyMs: number;
-  error?: string;
-}> {
+export async function testIceServers(iceServers) {
   const start = performance.now();
-  const candidates: string[] = [];
+  const candidates = [];
 
   return new Promise((resolve) => {
     try {
       const pc = new RTCPeerConnection({ iceServers });
-      // Create a dummy data channel to trigger ICE gathering
       pc.createDataChannel('ice-test');
 
       const timeout = setTimeout(() => {
@@ -92,7 +84,6 @@ export async function testIceServers(iceServers: IceServerConfig[]): Promise<{
             candidates.push(candidateStr);
           }
         } else {
-          // ICE gathering complete
           clearTimeout(timeout);
           pc.close();
           resolve({
@@ -116,7 +107,7 @@ export async function testIceServers(iceServers: IceServerConfig[]): Promise<{
             error: `Failed to create offer: ${err.message}`,
           });
         });
-    } catch (err: any) {
+    } catch (err) {
       resolve({
         success: false,
         candidates: [],

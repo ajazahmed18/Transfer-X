@@ -1,12 +1,12 @@
 // Web Audio API synthesized sound notifications for file transfers
-// Zero external network requests, ultra-lightweight, and soft/subtle audio design
+// Zero external network requests, ultra-lightweight, and soft audio design
 
-let audioCtx: AudioContext | null = null;
+let audioCtx = null;
 
-function getAudioContext(): AudioContext | null {
+function getAudioContext() {
   try {
     if (!audioCtx) {
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
       if (AudioCtxClass) {
         audioCtx = new AudioCtxClass();
       }
@@ -21,7 +21,7 @@ function getAudioContext(): AudioContext | null {
   }
 }
 
-export function isSoundEnabled(): boolean {
+export function isSoundEnabled() {
   try {
     const setting = localStorage.getItem('peerdrop_sound_enabled');
     return setting === null ? true : setting === 'true';
@@ -30,7 +30,7 @@ export function isSoundEnabled(): boolean {
   }
 }
 
-export function setSoundEnabled(enabled: boolean): void {
+export function setSoundEnabled(enabled) {
   try {
     localStorage.setItem('peerdrop_sound_enabled', enabled ? 'true' : 'false');
   } catch (e) {
@@ -41,7 +41,7 @@ export function setSoundEnabled(enabled: boolean): void {
 /**
  * Plays a gentle, pleasant ascending two-tone chime when transfer is initiated
  */
-export function playInitiatedSound(): void {
+export function playInitiatedSound() {
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -54,7 +54,7 @@ export function playInitiatedSound(): void {
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(523.25, now);
-    
+
     gain1.gain.setValueAtTime(0, now);
     gain1.gain.linearRampToValueAtTime(0.08, now + 0.02);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
@@ -86,9 +86,9 @@ export function playInitiatedSound(): void {
 }
 
 /**
- * Plays an upbeat, soothing 3-note harmonic chime when transfer completes
+ * Plays an upbeat harmonic chime when transfer completes
  */
-export function playCompletedSound(): void {
+export function playCompletedSound() {
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -96,10 +96,10 @@ export function playCompletedSound(): void {
   try {
     const now = ctx.currentTime;
     const notes = [
-      { freq: 523.25, time: 0.0, duration: 0.35, gain: 0.08 }, // C5
-      { freq: 659.25, time: 0.12, duration: 0.35, gain: 0.09 }, // E5
-      { freq: 783.99, time: 0.24, duration: 0.55, gain: 0.11 }, // G5
-      { freq: 1046.50, time: 0.36, duration: 0.7, gain: 0.07 }, // C6
+      { freq: 523.25, time: 0.0, duration: 0.35, gain: 0.08 },
+      { freq: 659.25, time: 0.12, duration: 0.35, gain: 0.09 },
+      { freq: 783.99, time: 0.24, duration: 0.55, gain: 0.11 },
+      { freq: 1046.5, time: 0.36, duration: 0.7, gain: 0.07 },
     ];
 
     notes.forEach((note) => {
@@ -125,9 +125,9 @@ export function playCompletedSound(): void {
 }
 
 /**
- * Plays a soft, subtle descending double-tap error tone
+ * Plays an error tone
  */
-export function playErrorSound(): void {
+export function playErrorSound() {
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -135,7 +135,6 @@ export function playErrorSound(): void {
   try {
     const now = ctx.currentTime;
 
-    // Tone 1 (349.23 Hz - F4)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'triangle';
@@ -151,7 +150,6 @@ export function playErrorSound(): void {
     osc1.start(now);
     osc1.stop(now + 0.18);
 
-    // Tone 2 (261.63 Hz - C4)
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'triangle';

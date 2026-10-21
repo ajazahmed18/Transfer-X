@@ -8,7 +8,6 @@ import {
   QrCode,
   Archive,
   Check,
-  FileText,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { useReceiver } from '../hooks/useReceiver';
@@ -18,11 +17,7 @@ import { TransferProgress } from './TransferProgress';
 import { QrScannerModal } from './QrScannerModal';
 import { OtpInput } from './OtpInput';
 
-interface ReceiverViewProps {
-  initialCode?: string;
-}
-
-export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) => {
+export const ReceiverView = ({ initialCode = '' }) => {
   const {
     code,
     status,
@@ -41,14 +36,14 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
     reset,
   } = useReceiver();
 
-  const [inputCode, setInputCode] = useState<string>(initialCode);
-  const [validatedMeta, setValidatedMeta] = useState<any | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [textPreviewContent, setTextPreviewContent] = useState<string | null>(null);
-  const [showScannerModal, setShowScannerModal] = useState<boolean>(false);
-  const [isZipping, setIsZipping] = useState<boolean>(false);
-  const [downloadedSet, setDownloadedSet] = useState<Set<number>>(new Set());
-  const [zipDownloaded, setZipDownloaded] = useState<boolean>(false);
+  const [inputCode, setInputCode] = useState(initialCode);
+  const [validatedMeta, setValidatedMeta] = useState(null);
+  const [validationError, setValidationError] = useState(null);
+  const [textPreviewContent, setTextPreviewContent] = useState(null);
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [isZipping, setIsZipping] = useState(false);
+  const [downloadedSet, setDownloadedSet] = useState(new Set());
+  const [zipDownloaded, setZipDownloaded] = useState(false);
 
   // If initialCode changes or is provided via URL parameter
   useEffect(() => {
@@ -63,12 +58,12 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
     const clean = inputCode.replace(/\D/g, '');
     if (clean.length === 6 && status === 'idle') {
       validateCode(clean).then((res) => {
-        if (res.valid && res.fileMeta) {
+        if (res?.valid && res.fileMeta) {
           setValidatedMeta(res.fileMeta);
           setValidationError(null);
         } else {
           setValidatedMeta(null);
-          setValidationError(res.error || 'Transfer room not found or code expired.');
+          setValidationError(res?.error || 'Transfer room not found or code expired.');
         }
       });
     } else {
@@ -94,7 +89,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
     }
   }, [receivedBlob, fileMeta]);
 
-  const handleFormSubmit = (e?: React.FormEvent) => {
+  const handleFormSubmit = (e) => {
     if (e) e.preventDefault();
     const clean = inputCode.replace(/\D/g, '');
     if (clean.length === 6) {
@@ -102,12 +97,12 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
     }
   };
 
-  const handleScanSuccess = (scannedCode: string) => {
+  const handleScanSuccess = (scannedCode) => {
     setInputCode(scannedCode);
     joinTransfer(scannedCode);
   };
 
-  const handleSingleDownload = (url: string, filename: string, index?: number) => {
+  const handleSingleDownload = (url, filename, index) => {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -132,7 +127,7 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `peerdrop-${code || 'transfer'}.zip`;
+      a.download = `transferx-${code || 'files'}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -146,17 +141,15 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
   };
 
   const fileCategory = fileMeta ? getFileCategory(fileMeta.type, fileMeta.name) : 'other';
-  const isMultipleFiles = receivedFiles.length > 1 || (fileMeta?.fileCount && fileMeta.fileCount > 1);
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-5">
-      {/* Code Input Form (Idle State) */}
+      {/* Code Input Form */}
       {status === 'idle' && (
         <div
           id="receiver-input-card"
           className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-xs space-y-6 transition-colors"
         >
-          {/* Header in App Indigo Theme */}
           <div className="text-center space-y-1.5">
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto border border-indigo-100/80 dark:border-indigo-900/60 shadow-2xs">
               <KeyRound className="w-7 h-7" />
@@ -170,19 +163,14 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
           </div>
 
           <form onSubmit={handleFormSubmit} className="space-y-5">
-            {/* Clean Indigo Styled OTP Input */}
             <div className="py-2">
               <OtpInput
                 value={inputCode}
                 onChange={setInputCode}
-                onComplete={(completedCode) => {
-                  // Optional auto-trigger or validation
-                }}
                 disabled={!isConnected}
               />
             </div>
 
-            {/* Validation Feedback & Incoming File Preview */}
             {isValidating && (
               <p className="text-xs text-center text-indigo-600 dark:text-indigo-400 animate-pulse font-medium">
                 Locating transfer session...
@@ -196,7 +184,6 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
               </div>
             )}
 
-            {/* Preview of incoming transfer (Single or Multiple files) */}
             {validatedMeta && !validationError && (
               <div
                 id="incoming-file-preview"
@@ -222,15 +209,14 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
                       )}
                     </div>
                     <p className="text-[11px] text-indigo-700 dark:text-indigo-300 mt-0.5 font-medium">
-                      {formatBytes(validatedMeta.size)} • Ready for direct P2P transfer
+                      {formatBytes(validatedMeta.size)} • Ready for Transfer X
                     </p>
                   </div>
                 </div>
 
-                {/* If multiple files are listed in metadata */}
                 {validatedMeta.files && validatedMeta.files.length > 1 && (
                   <div className="mt-3 pt-2.5 border-t border-indigo-200/50 dark:border-indigo-800/50 max-h-32 overflow-y-auto space-y-1 pr-1">
-                    {validatedMeta.files.map((f: any, idx: number) => (
+                    {validatedMeta.files.map((f, idx) => (
                       <div
                         key={idx}
                         className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 py-0.5"
@@ -244,7 +230,6 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
               </div>
             )}
 
-            {/* Main Action Buttons */}
             <div className="flex gap-2 pt-1">
               <button
                 id="connect-transfer-btn"
@@ -292,7 +277,6 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
             errorMessage={errorMessage}
           />
 
-          {/* Retry Button */}
           {(status === 'failed' || status === 'cancelled') && (
             <div className="flex justify-center pt-2">
               <button
@@ -313,24 +297,23 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
       {status === 'completed' && (
         <div
           id="receiver-completed-card"
-          className="bg-white dark:bg-slate-900 rounded-3xl border border-emerald-200 dark:border-emerald-900/60 p-6 sm:p-8 shadow-sm space-y-6 transition-colors"
+          className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-7 shadow-xs space-y-5 transition-colors animate-in fade-in zoom-in-95 duration-200"
         >
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-xs">
-              <FileCheck className="w-8 h-8" />
+          <div className="text-center space-y-1.5">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center mx-auto mb-3">
+              <FileCheck className="w-6 h-6 stroke-[2.2]" />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Transfer Completed!
+            <h3 className="text-base font-semibold text-slate-900 tracking-tight">
+              Transfer completed
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
               {receivedFiles.length > 1
-                ? `All ${receivedFiles.length} files were successfully received via direct P2P. Save them individually or download as a single ZIP.`
-                : 'Your file was assembled directly in memory from WebRTC chunks. Click below to save.'}
+                ? `All ${receivedFiles.length} files were successfully received via Transfer X. Save them individually or download as a single ZIP.`
+                : 'Your file was assembled directly in memory. Click below to save.'}
             </p>
           </div>
 
-          {/* Multi-File Actions: Download All as ZIP */}
+          {/* Multi-File Actions */}
           {receivedFiles.length > 1 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3.5 bg-indigo-50/60 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200/80 dark:border-indigo-800">
@@ -444,13 +427,12 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
                 </div>
               </div>
 
-              {/* In-Browser Previews for Images / Media */}
+              {/* In-Browser Previews */}
               {fileCategory === 'image' && (
                 <div className="p-3 bg-slate-900 dark:bg-slate-950 rounded-2xl flex items-center justify-center overflow-hidden max-h-72 border border-slate-800">
                   <img
                     src={downloadUrl}
                     alt={fileMeta.name}
-                    referrerPolicy="no-referrer"
                     className="max-h-64 object-contain rounded-lg"
                   />
                 </div>
@@ -481,9 +463,9 @@ export const ReceiverView: React.FC<ReceiverViewProps> = ({ initialCode = '' }) 
                 id="download-file-btn"
                 type="button"
                 onClick={() => handleSingleDownload(downloadUrl, fileMeta.name)}
-                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
                 Save {fileMeta.name}
               </button>
             </div>

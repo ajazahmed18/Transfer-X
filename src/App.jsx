@@ -1,22 +1,15 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { SenderView } from './components/SenderView';
 import { ReceiverView } from './components/ReceiverView';
 import { SettingsModal } from './components/SettingsModal';
 import { HistoryModal } from './components/HistoryModal';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
 
-function AppContent() {
-  const [activeTab, setActiveTab] = useState<'send' | 'receive'>('send');
-  const [initialReceiveCode, setInitialReceiveCode] = useState<string>('');
-  const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [showHistory, setShowHistory] = useState<boolean>(false);
-  const { isDark, toggleTheme } = useTheme();
+export default function App() {
+  const [activeTab, setActiveTab] = useState('send');
+  const [initialReceiveCode, setInitialReceiveCode] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Check URL query parameters for direct 6-digit code links (e.g. ?code=123456)
   useEffect(() => {
@@ -33,15 +26,13 @@ function AppContent() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-150">
-      {/* Clean Header */}
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      {/* Header */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenSettings={() => setShowSettings(true)}
         onOpenHistory={() => setShowHistory(true)}
-        isDark={isDark}
-        onToggleTheme={toggleTheme}
       />
 
       {/* Main Content Area */}
@@ -59,12 +50,3 @@ function AppContent() {
     </div>
   );
 }
-
-export default function App() {
-  return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
-  );
-}
-

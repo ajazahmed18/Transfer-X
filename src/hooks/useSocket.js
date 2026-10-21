@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
-let globalSocket: Socket | null = null;
+let globalSocket = null;
 
-export function getSocket(): Socket {
+export function getSocket() {
   if (!globalSocket) {
+    // In dev, Vite proxies /socket.io directly to backend
     globalSocket = io(window.location.origin, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
@@ -15,9 +16,9 @@ export function getSocket(): Socket {
 }
 
 export function useSocket() {
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [socketId, setSocketId] = useState<string | null>(null);
-  const socketRef = useRef<Socket>(getSocket());
+  const [isConnected, setIsConnected] = useState(false);
+  const [socketId, setSocketId] = useState(null);
+  const socketRef = useRef(getSocket());
 
   useEffect(() => {
     const socket = socketRef.current;

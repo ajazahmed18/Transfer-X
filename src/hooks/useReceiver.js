@@ -1,80 +1,64 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { useSocket } from './useSocket';
-import {
-  TransferStatus,
-  TransferProgress,
-  FileMetadata,
-  BatchMetadata,
-  ReceivedFile,
-  TransferHistoryItem,
-  DataChannelMessage,
-} from '../types';
 import { getStoredIceServers } from '../utils/iceServers';
 import { playInitiatedSound, playCompletedSound, playErrorSound } from '../utils/sound';
 
 export function useReceiver() {
   const { socket, isConnected } = useSocket();
-  const [code, setCode] = useState<string>('');
-  const [status, setStatus] = useState<TransferStatus>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [fileMeta, setFileMeta] = useState<FileMetadata | null>(null);
-  const [batchMeta, setBatchMeta] = useState<BatchMetadata | null>(null);
-  const [progress, setProgress] = useState<TransferProgress | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [receivedBlob, setReceivedBlob] = useState<Blob | null>(null);
-  const [receivedFiles, setReceivedFiles] = useState<ReceivedFile[]>([]);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [code, setCode] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [fileMeta, setFileMeta] = useState(null);
+  const [batchMeta, setBatchMeta] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const [downloadUrl, setDownloadUrl] = useState(null);
+  const [receivedBlob, setReceivedBlob] = useState(null);
+  const [receivedFiles, setReceivedFiles] = useState([]);
+  const [isValidating, setIsValidating] = useState(false);
 
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const dataChannelRef = useRef<RTCDataChannel | null>(null);
-  const receivedBuffersRef = useRef<ArrayBuffer[]>([]);
-  const overallBytesTransferredRef = useRef<number>(0);
-  const previousFilesBytesRef = useRef<number>(0);
-  const totalBatchBytesRef = useRef<number>(0);
-  const startTimeRef = useRef<number>(0);
-  const lastSpeedTimeRef = useRef<number>(0);
-  const lastSpeedBytesRef = useRef<number>(0);
-  const speedEmaRef = useRef<number>(0);
-  const lastProgressTimeRef = useRef<number>(0);
-  const currentMetaRef = useRef<FileMetadata | null>(null);
-  const batchMetaRef = useRef<BatchMetadata | null>(null);
-  const codeRef = useRef<string>('');
+  const pcRef = useRef(null);
+  const dataChannelRef = useRef(null);
+  const receivedBuffersRef = useRef([]);
+  const overallBytesTransferredRef = useRef(0);
+  const previousFilesBytesRef = useRef(0);
+  const totalBatchBytesRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const lastSpeedTimeRef = useRef(0);
+  const lastSpeedBytesRef = useRef(0);
+  const speedEmaRef = useRef(0);
+  const lastProgressTimeRef = useRef(0);
+  const currentMetaRef = useRef(null);
+  const batchMetaRef = useRef(null);
+  const codeRef = useRef('');
   codeRef.current = code;
   const statusRef = useRef(status);
   statusRef.current = status;
-  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const pendingIceCandidatesRef = useRef([]);
 
   const cleanupWebRtc = useCallback(() => {
     if (dataChannelRef.current) {
       try {
         dataChannelRef.current.close();
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
       dataChannelRef.current = null;
     }
     if (pcRef.current) {
       try {
         pcRef.current.close();
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
       pcRef.current = null;
     }
   }, []);
 
+  // Save received transfer log to MongoDB (MERN Stack) and localStorage fallback
   const saveHistory = useCallback(
-    (
-      filesList: ReceivedFile[],
-      currentCode: string,
-      transferStatus: 'completed' | 'failed' | 'cancelled'
-    ) => {
+    async (filesList, currentCode, transferStatus) => {
       try {
         if (!filesList || filesList.length === 0) return;
         const totalSize = filesList.reduce((acc, f) => acc + f.metadata.size, 0);
-        const item: TransferHistoryItem = {
-          id: `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+
+        const historyPayload = {
           code: currentCode,
           fileName:
             filesList.length === 1
@@ -82,21 +66,34 @@ export function useReceiver() {
               : `${filesList.length} files (${filesList.map((f) => f.metadata.name).slice(0, 2).join(', ')}${filesList.length > 2 ? '...' : ''})`,
           fileSize: totalSize,
           fileType: filesList.length === 1 ? filesList[0].metadata.type || 'application/octet-stream' : 'batch',
+          fileCount: filesList.length,
           direction: 'receive',
           status: transferStatus,
           timestamp: Date.now(),
-          downloadUrl: filesList.length === 1 ? filesList[0].downloadUrl : undefined,
-          fileCount: filesList.length,
         };
-        const existing = JSON.parse(localStorage.getItem('peerdrop_history') || '[]');
-        const updated = [item, ...existing].slice(0, 50);
-        localStorage.setItem('peerdrop_history', JSON.stringify(updated));
 
-        fetch('/api/transfers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item),
-        }).catch(() => {});
+        // 1. Save to MongoDB
+        try {
+          await fetch('/api/transfers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(historyPayload),
+          });
+        } catch (apiErr) {
+          console.warn('[MongoDB Save Warning]: Failed to reach backend API', apiErr);
+        }
+
+        // 2. Also save to localStorage as offline fallback
+        const existing = JSON.parse(localStorage.getItem('peerdrop_history') || '[]');
+        const updated = [
+          {
+            id: `${Date.now()}`,
+            downloadUrl: filesList.length === 1 ? filesList[0].downloadUrl : undefined,
+            ...historyPayload,
+          },
+          ...existing,
+        ].slice(0, 50);
+        localStorage.setItem('peerdrop_history', JSON.stringify(updated));
       } catch (e) {
         console.warn('Failed to record transfer history', e);
       }
@@ -106,7 +103,7 @@ export function useReceiver() {
 
   // Validate 6-digit code without joining
   const validateCode = useCallback(
-    (inputCode: string): Promise<{ valid: boolean; fileMeta?: any; error?: string }> => {
+    (inputCode) => {
       return new Promise((resolve) => {
         if (!socket || !socket.connected) {
           resolve({ valid: false, error: 'Signaling server disconnected.' });
@@ -117,12 +114,12 @@ export function useReceiver() {
           resolve({ valid: false, error: 'Please enter a valid 6-digit code.' });
           return;
         }
-        socket.emit('validate-code', { code: inputCode.trim() }, (res: { valid: boolean; fileMeta?: FileMetadata; error?: string }) => {
+        socket.emit('validate-code', { code: inputCode.trim() }, (res) => {
           setIsValidating(false);
-          if (res.valid) {
+          if (res?.valid) {
             resolve({ valid: true, fileMeta: res.fileMeta });
           } else {
-            resolve({ valid: false, error: res.error || 'Invalid or expired code.' });
+            resolve({ valid: false, error: res?.error || 'Invalid or expired code.' });
           }
         });
       });
@@ -132,7 +129,7 @@ export function useReceiver() {
 
   // Join transfer session
   const joinTransfer = useCallback(
-    (inputCode: string) => {
+    (inputCode) => {
       const cleanCode = inputCode.trim();
       if (!socket || !socket.connected) {
         setErrorMessage('Signaling server is disconnected.');
@@ -157,24 +154,20 @@ export function useReceiver() {
       previousFilesBytesRef.current = 0;
       totalBatchBytesRef.current = 0;
 
-      socket.emit(
-        'join-room',
-        { code: cleanCode },
-        (res: { success: boolean; fileMeta?: any; error?: string }) => {
-          if (res.success) {
-            if (res.fileMeta) {
-              setFileMeta(res.fileMeta);
-              currentMetaRef.current = res.fileMeta;
-              totalBatchBytesRef.current = res.fileMeta.size || 0;
-            }
-            setStatus('connecting');
-          } else {
-            setStatus('failed');
-            setErrorMessage(res.error || 'Failed to join transfer room.');
-            playErrorSound();
+      socket.emit('join-room', { code: cleanCode }, (res) => {
+        if (res?.success) {
+          if (res.fileMeta) {
+            setFileMeta(res.fileMeta);
+            currentMetaRef.current = res.fileMeta;
+            totalBatchBytesRef.current = res.fileMeta.size || 0;
           }
+          setStatus('connecting');
+        } else {
+          setStatus('failed');
+          setErrorMessage(res?.error || 'Failed to join transfer room.');
+          playErrorSound();
         }
-      );
+      });
     },
     [socket, cleanupWebRtc]
   );
@@ -183,7 +176,7 @@ export function useReceiver() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleOffer = async (data: { offer: RTCSessionDescriptionInit; senderId: string }) => {
+    const handleOffer = async (data) => {
       setStatus('connecting');
 
       try {
@@ -230,7 +223,7 @@ export function useReceiver() {
             // 1. Text control messages
             if (typeof rawData === 'string') {
               try {
-                const message: DataChannelMessage = JSON.parse(rawData);
+                const message = JSON.parse(rawData);
 
                 if (message.type === 'BATCH_HEADER') {
                   batchMetaRef.current = message.batch;
@@ -249,7 +242,6 @@ export function useReceiver() {
                   setFileMeta(message.metadata);
                   receivedBuffersRef.current = [];
 
-                  // If not already in transferring status or first file
                   if (!startTimeRef.current) {
                     startTimeRef.current = performance.now();
                     lastSpeedTimeRef.current = startTimeRef.current;
@@ -270,7 +262,7 @@ export function useReceiver() {
                   });
                   const url = URL.createObjectURL(blob);
 
-                  const completedFileItem: ReceivedFile = {
+                  const completedFileItem = {
                     metadata: meta,
                     blob,
                     downloadUrl: url,
@@ -280,25 +272,20 @@ export function useReceiver() {
                   receivedBuffersRef.current = [];
                   previousFilesBytesRef.current += meta.size;
 
-                  // Set as active single file for simple single-file preview
                   setReceivedBlob(blob);
                   setDownloadUrl(url);
                 } else if (message.type === 'TRANSFER_COMPLETE') {
                   setStatus('completed');
                   playCompletedSound();
 
-                  // Celebration confetti
                   try {
                     confetti({
                       particleCount: 80,
                       spread: 60,
                       origin: { y: 0.6 },
                     });
-                  } catch {
-                    // ignore
-                  }
+                  } catch (e) {}
 
-                  // Retrieve all completed files
                   setReceivedFiles((currentReceived) => {
                     if (codeRef.current && currentReceived.length > 0) {
                       saveHistory(currentReceived, codeRef.current, 'completed');
@@ -390,37 +377,36 @@ export function useReceiver() {
             answer,
           });
         }
-      } catch (err: unknown) {
+      } catch (err) {
         console.error('[WebRTC Answer Error]', err);
-        const message = err instanceof Error ? err.message : 'Unknown error';
         setStatus('failed');
-        setErrorMessage(`Failed to connect WebRTC: ${message}`);
+        setErrorMessage(`Failed to connect WebRTC: ${err.message || 'Unknown error'}`);
         playErrorSound();
       }
     };
 
-    const handleIceCandidate = async (data: { candidate: RTCIceCandidateInit }) => {
+    const handleIceCandidate = async (data) => {
       try {
-        if (pcRef.current && data.candidate) {
+        if (pcRef.current && data?.candidate) {
           if (!pcRef.current.remoteDescription) pendingIceCandidatesRef.current.push(data.candidate);
           else await pcRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
-      } catch (err: unknown) {
+      } catch (err) {
         console.warn('[Add ICE Candidate Error]', err);
       }
     };
 
-    const handlePeerDisconnected = (data: { role: string; message?: string }) => {
+    const handlePeerDisconnected = (data) => {
       if (statusRef.current !== 'completed') {
         setStatus('failed');
-        setErrorMessage(data.message || 'Sender disconnected before transfer completed.');
+        setErrorMessage(data?.message || 'Sender disconnected before transfer completed.');
         playErrorSound();
       }
     };
 
-    const handlePeerCancelled = (data: { reason?: string }) => {
+    const handlePeerCancelled = (data) => {
       setStatus('cancelled');
-      setErrorMessage(data.reason || 'Sender cancelled the transfer.');
+      setErrorMessage(data?.reason || 'Sender cancelled the transfer.');
     };
 
     socket.on('offer', handleOffer);

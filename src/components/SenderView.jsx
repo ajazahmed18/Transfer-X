@@ -13,14 +13,13 @@ import {
   Trash2,
   Files,
   X,
-  ShieldCheck,
 } from 'lucide-react';
 import { useSender } from '../hooks/useSender';
 import { formatBytes } from '../utils/formatters';
 import { FileIcon } from './FileIcon';
 import { TransferProgress } from './TransferProgress';
 
-export const SenderView: React.FC = () => {
+export const SenderView = () => {
   const {
     files,
     code,
@@ -34,18 +33,18 @@ export const SenderView: React.FC = () => {
     reset: hookReset,
   } = useSender();
 
-  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
-  const [isDraggingOverZone, setIsDraggingOverZone] = useState<boolean>(false);
-  const [isWindowDragging, setIsWindowDragging] = useState<boolean>(false);
-  const [copiedCode, setCopiedCode] = useState<boolean>(false);
-  const [copiedLink, setCopiedLink] = useState<boolean>(false);
-  const [showQrModal, setShowQrModal] = useState<boolean>(false);
-  const [showFilesListInWaiting, setShowFilesListInWaiting] = useState<boolean>(false);
-  const [timeLeft, setTimeLeft] = useState<string>('15:00');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const windowDragCounter = useRef<number>(0);
+  const [stagedFiles, setStagedFiles] = useState([]);
+  const [isDraggingOverZone, setIsDraggingOverZone] = useState(false);
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showFilesListInWaiting, setShowFilesListInWaiting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState('15:00');
+  const fileInputRef = useRef(null);
+  const windowDragCounter = useRef(0);
 
-  const addFilesToStaging = (newFiles: FileList | File[]) => {
+  const addFilesToStaging = (newFiles) => {
     const list = Array.from(newFiles);
     if (list.length === 0) return;
     setStagedFiles((prev) => {
@@ -57,7 +56,7 @@ export const SenderView: React.FC = () => {
     });
   };
 
-  const removeStagedFile = (index: number) => {
+  const removeStagedFile = (index) => {
     setStagedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -74,7 +73,7 @@ export const SenderView: React.FC = () => {
 
   // Window-wide drag and drop listener
   useEffect(() => {
-    const handleWindowDragEnter = (e: DragEvent) => {
+    const handleWindowDragEnter = (e) => {
       e.preventDefault();
       if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
         windowDragCounter.current += 1;
@@ -82,7 +81,7 @@ export const SenderView: React.FC = () => {
       }
     };
 
-    const handleWindowDragLeave = (e: DragEvent) => {
+    const handleWindowDragLeave = (e) => {
       e.preventDefault();
       windowDragCounter.current -= 1;
       if (windowDragCounter.current <= 0) {
@@ -91,14 +90,14 @@ export const SenderView: React.FC = () => {
       }
     };
 
-    const handleWindowDragOver = (e: DragEvent) => {
+    const handleWindowDragOver = (e) => {
       e.preventDefault();
       if (e.dataTransfer) {
         e.dataTransfer.dropEffect = 'copy';
       }
     };
 
-    const handleWindowDrop = (e: DragEvent) => {
+    const handleWindowDrop = (e) => {
       e.preventDefault();
       windowDragCounter.current = 0;
       setIsWindowDragging(false);
@@ -142,19 +141,19 @@ export const SenderView: React.FC = () => {
     return () => clearInterval(interval);
   }, [expiresAt]);
 
-  const handleZoneDragOver = (e: React.DragEvent) => {
+  const handleZoneDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOverZone(true);
   };
 
-  const handleZoneDragLeave = (e: React.DragEvent) => {
+  const handleZoneDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOverZone(false);
   };
 
-  const handleZoneDrop = (e: React.DragEvent) => {
+  const handleZoneDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOverZone(false);
@@ -166,10 +165,12 @@ export const SenderView: React.FC = () => {
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       addFilesToStaging(e.target.files);
     }
+    // Reset input value so selecting the same file again works
+    e.target.value = '';
   };
 
   const copyCodeToClipboard = () => {
@@ -194,7 +195,7 @@ export const SenderView: React.FC = () => {
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-5 relative">
-      {/* Hidden File Input supporting multiple files (No limit) */}
+      {/* Hidden File Input */}
       <input
         id="sender-file-input"
         ref={fileInputRef}
@@ -204,7 +205,7 @@ export const SenderView: React.FC = () => {
         className="hidden"
       />
 
-      {/* Full-Window Drag Overlay when dragging files anywhere */}
+      {/* Full-Window Drag Overlay */}
       {isWindowDragging && (
         <div
           id="window-drag-overlay"
@@ -218,16 +219,15 @@ export const SenderView: React.FC = () => {
               Drop any files here
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              No file count or size limits • Direct P2P transfer
+              No file count or size limits • Direct Transfer X
             </p>
           </div>
         </div>
       )}
 
-      {/* File Dropzone & Staging Area (Idle State) */}
+      {/* File Dropzone & Staging Area */}
       {status === 'idle' && (
         <div className="space-y-4">
-          {/* Dropzone Container */}
           <div
             id="sender-dropzone"
             onDragOver={handleZoneDragOver}
@@ -283,7 +283,6 @@ export const SenderView: React.FC = () => {
               id="staged-files-panel"
               className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-xs space-y-4"
             >
-              {/* Header Summary */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
@@ -316,7 +315,7 @@ export const SenderView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Scrollable File List */}
+              {/* File List */}
               <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
                 {stagedFiles.map((f, index) => (
                   <div
@@ -352,7 +351,7 @@ export const SenderView: React.FC = () => {
                 ))}
               </div>
 
-              {/* Primary Action Button */}
+              {/* Action Button */}
               <button
                 id="start-send-staged-btn"
                 type="button"
@@ -375,7 +374,7 @@ export const SenderView: React.FC = () => {
           id="sender-waiting-card"
           className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-5 transition-colors"
         >
-          {/* File summary pill */}
+          {/* File summary */}
           <div className="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/70 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0">
@@ -423,7 +422,6 @@ export const SenderView: React.FC = () => {
               </div>
             </div>
 
-            {/* Expandable list in waiting state */}
             {showFilesListInWaiting && activeFiles.length > 1 && (
               <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800 max-h-36 overflow-y-auto space-y-1.5 pr-1">
                 {activeFiles.map((f, idx) => (
@@ -439,7 +437,7 @@ export const SenderView: React.FC = () => {
             )}
           </div>
 
-          {/* Clean Indigo OTP 6-Digit Code Display */}
+          {/* OTP 6-Digit Code Display */}
           <div className="text-center py-2 space-y-2.5">
             <div
               id="sender-otp-code-display"
@@ -459,7 +457,7 @@ export const SenderView: React.FC = () => {
                 ))}
               </div>
 
-              {/* Clean Theme Dot Separator */}
+              {/* Dot Separator */}
               <div className="px-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 block" />
               </div>
@@ -492,7 +490,7 @@ export const SenderView: React.FC = () => {
             </div>
           </div>
 
-          {/* Action Buttons: Copy Code, Share Link, QR Code */}
+          {/* Action Buttons */}
           <div className="grid grid-cols-3 gap-2">
             <button
               id="copy-code-btn"
@@ -566,43 +564,9 @@ export const SenderView: React.FC = () => {
             progress={progress}
             direction="send"
             onCancel={cancelTransfer}
+            onReset={resetAll}
             errorMessage={errorMessage}
           />
-
-          {/* Success summary & Send more */}
-          {status === 'completed' && (
-            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl p-4 text-center space-y-3">
-              <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                {activeFiles.length > 1
-                  ? `All ${activeFiles.length} files (${formatBytes(activeTotalSize)}) were transferred successfully!`
-                  : `"${activeFiles[0]?.name}" was sent successfully!`}
-              </p>
-              <button
-                id="send-another-file-btn"
-                type="button"
-                onClick={resetAll}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Send More Files
-              </button>
-            </div>
-          )}
-
-          {/* Retry on fail/cancel */}
-          {(status === 'failed' || status === 'cancelled') && (
-            <div className="flex justify-center pt-2">
-              <button
-                id="sender-retry-btn"
-                type="button"
-                onClick={resetAll}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Try Sending Again
-              </button>
-            </div>
-          )}
         </div>
       )}
 

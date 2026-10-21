@@ -10,14 +10,7 @@ import {
 } from 'lucide-react';
 import { getFileCategory } from '../utils/formatters';
 
-interface FileIconProps {
-  mimeType: string;
-  filename: string;
-  className?: string;
-  size?: number;
-}
-
-export const FileIcon: React.FC<FileIconProps> = ({
+export const FileIcon = ({
   mimeType,
   filename,
   className = 'w-6 h-6',
