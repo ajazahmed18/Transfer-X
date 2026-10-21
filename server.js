@@ -5,13 +5,16 @@
  *   node server.js
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
 import express from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import { createServer as createViteServer } from 'vite';
 import mongoose from 'mongoose';
+import { Transfer } from './backend/models/Transfer.js';
 
 let PORT = Number(process.env.PORT) || 3000;
 const portArgIndex = process.argv.indexOf('--port');
@@ -109,11 +112,19 @@ async function start() {
     });
   });
 
-  app.get('/api/transfers', (req, res) => {
+  app.get('/api/transfers', async (req, res) => {
+    try {
+      if (isMongoConnected()) {
+        const records = await Transfer.find().sort({ createdAt: -1 }).limit(100);
+        return res.json(records);
+      }
+    } catch (err) {
+      console.warn('[MongoDB] Fallback to in-memory history:', err.message);
+    }
     res.json(transferHistory);
   });
 
-  app.post('/api/transfers', (req, res) => {
+  app.post('/api/transfers', async (req, res) => {
     const data = req.body || {};
     const record = {
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -127,12 +138,38 @@ async function start() {
       duration: Number(data.duration) || 0,
       createdAt: Date.now(),
     };
+
+    if (isMongoConnected()) {
+      try {
+        const mongoRecord = await Transfer.create({
+          code: record.code,
+          fileName: record.fileName,
+          fileSize: record.fileSize,
+          fileType: record.fileType,
+          fileCount: record.fileCount,
+          direction: record.direction,
+          status: record.status,
+          duration: record.duration,
+        });
+        return res.status(201).json(mongoRecord);
+      } catch (err) {
+        console.warn('[MongoDB] Save failed, fallback to in-memory:', err.message);
+      }
+    }
+
     transferHistory.unshift(record);
     if (transferHistory.length > 100) transferHistory.pop();
     res.status(201).json(record);
   });
 
-  app.delete('/api/transfers', (req, res) => {
+  app.delete('/api/transfers', async (req, res) => {
+    if (isMongoConnected()) {
+      try {
+        await Transfer.deleteMany({});
+      } catch (err) {
+        console.warn('[MongoDB] Clear failed:', err.message);
+      }
+    }
     transferHistory.length = 0;
     res.json({ message: 'Transfer history cleared successfully' });
   });
@@ -257,10 +294,20 @@ async function start() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    const indexPath = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(indexPath);
+      });
+    } else {
+      console.warn('⚠️ [Production Warning] dist/ folder not found. Falling back to dynamic Vite serving...');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    }
   }
 
   server.listen(PORT, '0.0.0.0', () => {

@@ -23,13 +23,23 @@ export const HistoryModal = ({ isOpen, onClose }) => {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      // 1. Try to fetch from MongoDB API
+      // 1. Check health to verify MongoDB status
+      try {
+        const healthRes = await fetch('/api/health');
+        if (healthRes.ok) {
+          const health = await healthRes.json();
+          if (health.database === 'mongodb') {
+            setIsMongoSource(true);
+          }
+        }
+      } catch (err) {}
+
+      // 2. Fetch records from backend API
       const res = await fetch('/api/transfers');
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setHistory(data);
-          setIsMongoSource(true);
           setLoading(false);
           return;
         }
@@ -38,12 +48,11 @@ export const HistoryModal = ({ isOpen, onClose }) => {
       console.warn('[HistoryModal] Backend API offline, loading localStorage', e);
     }
 
-    // 2. Fallback to localStorage
+    // 3. Fallback to localStorage
     try {
       const raw = localStorage.getItem('peerdrop_history');
       if (raw) {
         setHistory(JSON.parse(raw));
-        setIsMongoSource(false);
       } else {
         setHistory([]);
       }
