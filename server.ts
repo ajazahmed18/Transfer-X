@@ -69,6 +69,22 @@ async function startServer() {
     maxHttpBufferSize: 1e6, // Signaling messages are tiny
   });
 
+  // Transfer History In-Memory Store
+  interface TransferRecord {
+    id: string;
+    code: string;
+    fileName: string;
+    fileSize: number;
+    fileType: string;
+    fileCount: number;
+    direction: 'send' | 'receive';
+    status: 'completed' | 'cancelled' | 'failed';
+    duration?: number;
+    createdAt: number;
+  }
+
+  const transferHistory: TransferRecord[] = [];
+
   // REST API Routes
   app.get('/api/health', (req, res) => {
     res.json({
@@ -77,6 +93,36 @@ async function startServer() {
       uptime: process.uptime(),
       timestamp: Date.now(),
     });
+  });
+
+  app.get('/api/transfers', (req, res) => {
+    res.json(transferHistory);
+  });
+
+  app.post('/api/transfers', (req, res) => {
+    const { code, fileName, fileSize, fileType, fileCount, direction, status, duration } = req.body || {};
+    const record: TransferRecord = {
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      code: code || '000000',
+      fileName: fileName || 'Unknown File',
+      fileSize: Number(fileSize) || 0,
+      fileType: fileType || 'application/octet-stream',
+      fileCount: Number(fileCount) || 1,
+      direction: direction === 'receive' ? 'receive' : 'send',
+      status: status || 'completed',
+      duration: Number(duration) || 0,
+      createdAt: Date.now(),
+    };
+    transferHistory.unshift(record);
+    if (transferHistory.length > 100) {
+      transferHistory.pop();
+    }
+    res.status(201).json(record);
+  });
+
+  app.delete('/api/transfers', (req, res) => {
+    transferHistory.length = 0;
+    res.json({ message: 'Transfer history cleared successfully' });
   });
 
   app.get('/api/rooms/:code', (req, res) => {

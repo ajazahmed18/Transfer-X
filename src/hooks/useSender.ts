@@ -72,6 +72,12 @@ export function useSender() {
         const existing = JSON.parse(localStorage.getItem('peerdrop_history') || '[]');
         const updated = [item, ...existing].slice(0, 50);
         localStorage.setItem('peerdrop_history', JSON.stringify(updated));
+
+        fetch('/api/transfers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
+        }).catch(() => {});
       } catch (e) {
         console.warn('Failed to record transfer history', e);
       }

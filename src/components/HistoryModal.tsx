@@ -23,23 +23,79 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
   const [history, setHistory] = useState<TransferHistoryItem[]>([]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    let active = true;
+    const loadHistory = async () => {
+      let localItems: TransferHistoryItem[] = [];
       try {
         const raw = localStorage.getItem('peerdrop_history');
-        if (raw) {
-          setHistory(JSON.parse(raw));
+        if (raw) localItems = JSON.parse(raw);
+      } catch (e) {
+        // ignore
+      }
+
+      try {
+        const res = await fetch('/api/transfers');
+        if (res.ok) {
+          const apiData = await res.json();
+          if (Array.isArray(apiData) && apiData.length > 0) {
+            // Map api records and merge with local items without duplicates
+            const mappedApi: TransferHistoryItem[] = apiData.map((item: any) => ({
+              id: item.id || `${item.createdAt}-${item.code}`,
+              code: item.code,
+              fileName: item.fileName,
+              fileSize: item.fileSize,
+              fileType: item.fileType,
+              direction: item.direction,
+              status: item.status,
+              timestamp: item.createdAt || item.timestamp || Date.now(),
+              fileCount: item.fileCount,
+            }));
+
+            const combinedMap = new Map<string, TransferHistoryItem>();
+            [...localItems, ...mappedApi].forEach((it) => {
+              const key = `${it.code}-${it.fileName}-${it.fileSize}`;
+              if (!combinedMap.has(key)) {
+                combinedMap.set(key, it);
+              }
+            });
+
+            if (active) {
+              setHistory(
+                Array.from(combinedMap.values()).sort(
+                  (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+                )
+              );
+              return;
+            }
+          }
         }
       } catch (e) {
-        console.warn('Failed to load history', e);
+        // fallback to local
       }
-    }
+
+      if (active) {
+        setHistory(localItems);
+      }
+    };
+
+    loadHistory();
+    return () => {
+      active = false;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleClearHistory = () => {
-    localStorage.removeItem('peerdrop_history');
-    setHistory([]);
+  const handleClearHistory = async () => {
+    try {
+      fetch('/api/transfers', { method: 'DELETE' }).catch(() => {});
+      localStorage.removeItem('peerdrop_history');
+      setHistory([]);
+    } catch (e) {
+      console.warn('Failed to clear history', e);
+    }
   };
 
   return (
