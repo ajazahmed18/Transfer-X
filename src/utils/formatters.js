@@ -93,3 +93,43 @@ export function getFileCategory(mimeType, filename) {
   }
   return 'other';
 }
+
+/**
+ * Return a clean, human-readable file description instead of raw MIME types
+ */
+export function formatFileLabel(mimeType, filename) {
+  const ext = filename?.split('.').pop()?.toLowerCase() || '';
+
+  if (['xlsx', 'xls', 'csv'].includes(ext) || mimeType?.includes('sheet') || mimeType?.includes('excel')) {
+    return 'Spreadsheet';
+  }
+  if (ext === 'pdf' || mimeType?.includes('pdf')) {
+    return 'PDF Document';
+  }
+  if (['docx', 'doc'].includes(ext) || mimeType?.includes('word')) {
+    return 'Word Document';
+  }
+  if (['pptx', 'ppt'].includes(ext) || mimeType?.includes('presentation')) {
+    return 'Presentation';
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext) || mimeType?.includes('zip')) {
+    return 'Archive';
+  }
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || mimeType?.startsWith('image/')) {
+    return 'Image';
+  }
+  if (['mp4', 'mov', 'mkv', 'webm'].includes(ext) || mimeType?.startsWith('video/')) {
+    return 'Video';
+  }
+  if (['mp3', 'wav', 'aac', 'm4a', 'flac'].includes(ext) || mimeType?.startsWith('audio/')) {
+    return 'Audio';
+  }
+  if (['txt', 'md', 'rtf'].includes(ext) || mimeType?.includes('text/plain')) {
+    return 'Text Document';
+  }
+  if (['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'html', 'css', 'json'].includes(ext)) {
+    return 'Source Code';
+  }
+  return ext ? `${ext.toUpperCase()} File` : 'File';
+}
+

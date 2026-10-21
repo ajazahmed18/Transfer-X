@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { useReceiver } from '../hooks/useReceiver';
-import { formatBytes, getFileCategory } from '../utils/formatters';
+import { formatBytes, getFileCategory, formatFileLabel } from '../utils/formatters';
 import { FileIcon } from './FileIcon';
 import { TransferProgress } from './TransferProgress';
 import { QrScannerModal } from './QrScannerModal';
@@ -39,7 +39,6 @@ export const ReceiverView = ({ initialCode = '' }) => {
   const [inputCode, setInputCode] = useState(initialCode);
   const [validatedMeta, setValidatedMeta] = useState(null);
   const [validationError, setValidationError] = useState(null);
-  const [textPreviewContent, setTextPreviewContent] = useState(null);
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
   const [downloadedSet, setDownloadedSet] = useState(new Set());
@@ -71,23 +70,6 @@ export const ReceiverView = ({ initialCode = '' }) => {
       setValidationError(null);
     }
   }, [inputCode, status, validateCode]);
-
-  // Load preview snippet if single file is text/code
-  useEffect(() => {
-    if (receivedBlob && fileMeta) {
-      const category = getFileCategory(fileMeta.type, fileMeta.name);
-      if (category === 'document' || category === 'code') {
-        if (fileMeta.size < 2 * 1024 * 1024) {
-          receivedBlob
-            .text()
-            .then((txt) => {
-              setTextPreviewContent(txt.slice(0, 2000));
-            })
-            .catch(() => {});
-        }
-      }
-    }
-  }, [receivedBlob, fileMeta]);
 
   const handleFormSubmit = (e) => {
     if (e) e.preventDefault();
@@ -408,54 +390,45 @@ export const ReceiverView = ({ initialCode = '' }) => {
           {/* Single File Presentation */}
           {receivedFiles.length <= 1 && fileMeta && downloadUrl && (
             <div className="space-y-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
-                    <FileIcon mimeType={fileMeta.type} filename={fileMeta.name} size={26} />
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center shrink-0">
+                    <FileIcon mimeType={fileMeta.type} filename={fileMeta.name} size={22} />
                   </div>
                   <div className="min-w-0">
                     <h4
-                      className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate"
+                      className="text-xs font-semibold text-slate-900 truncate"
                       title={fileMeta.name}
                     >
                       {fileMeta.name}
                     </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {formatBytes(fileMeta.size)} • {fileMeta.type || 'File'}
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {formatBytes(fileMeta.size)} · {formatFileLabel(fileMeta.type, fileMeta.name)}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* In-Browser Previews */}
+              {/* In-Browser Previews for Images Only */}
               {fileCategory === 'image' && (
-                <div className="p-3 bg-slate-900 dark:bg-slate-950 rounded-2xl flex items-center justify-center overflow-hidden max-h-72 border border-slate-800">
+                <div className="p-2 bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden max-h-72 border border-slate-100">
                   <img
                     src={downloadUrl}
                     alt={fileMeta.name}
-                    className="max-h-64 object-contain rounded-lg"
+                    className="max-h-60 object-contain rounded-lg"
                   />
                 </div>
               )}
 
               {fileCategory === 'audio' && (
-                <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <audio controls src={downloadUrl} className="w-full" />
                 </div>
               )}
 
               {fileCategory === 'video' && (
-                <div className="bg-black rounded-2xl overflow-hidden max-h-72 flex items-center justify-center">
-                  <video controls src={downloadUrl} className="max-h-64 w-full object-contain" />
-                </div>
-              )}
-
-              {textPreviewContent && (
-                <div className="bg-slate-900 dark:bg-slate-950 text-slate-200 rounded-2xl p-4 font-mono text-xs max-h-48 overflow-auto border border-slate-800 whitespace-pre-wrap">
-                  {textPreviewContent}
-                  {textPreviewContent.length >= 2000 && (
-                    <span className="text-slate-500">... (truncated preview)</span>
-                  )}
+                <div className="bg-black rounded-xl overflow-hidden max-h-72 flex items-center justify-center">
+                  <video controls src={downloadUrl} className="max-h-60 w-full object-contain" />
                 </div>
               )}
 
